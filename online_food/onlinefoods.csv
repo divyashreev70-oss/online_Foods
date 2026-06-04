@@ -1,0 +1,11 @@
+Age,Gender,Marital Status,Occupation,Monthly Income,Educational Qualifications,Family size,latitude,longitude,Feedback
+23,Female,Single,Student,No Income,Graduate,4,12.9716,77.5946,Positive
+25,Male,Single,Employee,10000 to 25000,Post Graduate,3,12.9720,77.5950,Positive
+30,Male,Married,Employee,25001 to 50000,Graduate,5,12.9730,77.5960,Negative
+28,Female,Single,Student,No Income,Graduate,4,12.9740,77.5970,Positive
+35,Male,Married,Self Employeed,More than 50000,Post Graduate,6,12.9750,77.5980,Neutral
+22,Female,Single,Student,No Income,Graduate,3,12.9760,77.5990,Positive
+27,Male,Single,Employee,10000 to 25000,Graduate,4,12.9770,77.6000,Positive
+29,Female,Married,Employee,25001 to 50000,Post Graduate,5,12.9780,77.6010,Negative
+31,Male,Married,Self Employeed,More than 50000,Graduate,6,12.9790,77.6020,Positive
+24,Female,Single,Student,No Income,Graduate,4,12.9800,77.6030,Positive
