@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
+import os
 
-# --------------------------------------------------
+# ==================================================
 # PAGE CONFIG
-# --------------------------------------------------
+# ==================================================
 
 st.set_page_config(
     page_title="🍽️ Indian Food Analytics Dashboard",
@@ -13,75 +13,92 @@ st.set_page_config(
     layout="wide"
 )
 
-# --------------------------------------------------
+# ==================================================
 # CUSTOM CSS
-# --------------------------------------------------
+# ==================================================
 
 st.markdown("""
 <style>
-
 .main {
-    background-color:#f8f9fa;
+    background-color: #f8f9fa;
 }
 
-.metric-card {
-    background-color:white;
-    padding:15px;
-    border-radius:15px;
-    box-shadow:0px 0px 10px rgba(0,0,0,0.1);
+.metric-box {
+    background-color: white;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
 }
-
-h1,h2,h3{
-color:#ff4b4b;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
-# --------------------------------------------------
-# HEADER
-# --------------------------------------------------
-
-st.title("🍽️ Indian Food Analytics Dashboard")
-st.markdown("### Explore Customer Food Ordering Behaviour using Data Analytics")
-
-# --------------------------------------------------
+# ==================================================
 # LOAD DATA
-# --------------------------------------------------
+# ==================================================
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv("onlinefoods.csv")
 
-    if "Unnamed: 12" in df.columns:
-        df.drop("Unnamed: 12", axis=1, inplace=True)
+    possible_paths = [
+        "onlinefoods.csv",
+        "data/onlinefoods.csv"
+    ]
 
-    return df
+    for path in possible_paths:
+        if os.path.exists(path):
+
+            df = pd.read_csv(path)
+
+            if "Unnamed: 12" in df.columns:
+                df.drop(columns=["Unnamed: 12"], inplace=True)
+
+            return df
+
+    st.error("""
+    ❌ Dataset not found.
+
+    Please upload:
+
+    onlinefoods.csv
+
+    OR
+
+    data/onlinefoods.csv
+    """)
+
+    st.stop()
 
 df = load_data()
 
-# --------------------------------------------------
-# SIDEBAR
-# --------------------------------------------------
+# ==================================================
+# TITLE
+# ==================================================
 
-st.sidebar.header("🔍 Filters")
+st.title("🍽️ Indian Food Analytics Dashboard")
+st.markdown("### Explore Food Ordering Behavior Using Data Analytics")
+
+# ==================================================
+# SIDEBAR FILTERS
+# ==================================================
+
+st.sidebar.header("Filters")
 
 gender = st.sidebar.multiselect(
-    "Select Gender",
-    df["Gender"].unique(),
-    default=df["Gender"].unique()
+    "Gender",
+    df["Gender"].dropna().unique(),
+    default=df["Gender"].dropna().unique()
 )
 
 occupation = st.sidebar.multiselect(
-    "Select Occupation",
-    df["Occupation"].unique(),
-    default=df["Occupation"].unique()
+    "Occupation",
+    df["Occupation"].dropna().unique(),
+    default=df["Occupation"].dropna().unique()
 )
 
 feedback = st.sidebar.multiselect(
-    "Select Feedback",
-    df["Feedback"].unique(),
-    default=df["Feedback"].unique()
+    "Feedback",
+    df["Feedback"].dropna().unique(),
+    default=df["Feedback"].dropna().unique()
 )
 
 filtered_df = df[
@@ -92,9 +109,9 @@ filtered_df = df[
     (df["Feedback"].isin(feedback))
 ]
 
-# --------------------------------------------------
+# ==================================================
 # KPI SECTION
-# --------------------------------------------------
+# ==================================================
 
 st.subheader("📊 Key Metrics")
 
@@ -104,26 +121,47 @@ with col1:
     st.metric("Total Customers", len(filtered_df))
 
 with col2:
-    st.metric("Average Age", round(filtered_df["Age"].mean(),1))
+    st.metric(
+        "Average Age",
+        round(filtered_df["Age"].mean(), 1)
+        if len(filtered_df) > 0 else 0
+    )
 
 with col3:
-    st.metric("Average Family Size",
-              round(filtered_df["Family size"].mean(),1))
+    st.metric(
+        "Average Family Size",
+        round(filtered_df["Family size"].mean(), 1)
+        if len(filtered_df) > 0 else 0
+    )
 
 with col4:
-    positive_rate = (
-        len(filtered_df[filtered_df["Feedback"].str.contains("Positive")])
-        / len(filtered_df)
-    ) * 100
 
-    st.metric("Positive Feedback %",
-              f"{positive_rate:.1f}%")
+    if len(filtered_df) > 0:
+        positive = len(
+            filtered_df[
+                filtered_df["Feedback"]
+                .astype(str)
+                .str.contains("Positive",
+                              case=False,
+                              na=False)
+            ]
+        )
+
+        positive_rate = (positive / len(filtered_df)) * 100
+
+    else:
+        positive_rate = 0
+
+    st.metric(
+        "Positive Feedback %",
+        f"{positive_rate:.1f}%"
+    )
 
 st.divider()
 
-# --------------------------------------------------
-# CHARTS ROW 1
-# --------------------------------------------------
+# ==================================================
+# GENDER ANALYSIS
+# ==================================================
 
 col1, col2 = st.columns(2)
 
@@ -150,203 +188,161 @@ with col2:
 
     st.plotly_chart(fig, use_container_width=True)
 
-# --------------------------------------------------
-# CHARTS ROW 2
-# --------------------------------------------------
+# ==================================================
+# OCCUPATION ANALYSIS
+# ==================================================
 
-col1, col2 = st.columns(2)
+st.subheader("💼 Occupation Analysis")
 
-with col1:
+occupation_df = (
+    filtered_df["Occupation"]
+    .value_counts()
+    .reset_index()
+)
 
-    occupation_count = (
-        filtered_df["Occupation"]
-        .value_counts()
-        .reset_index()
-    )
+occupation_df.columns = ["Occupation", "Count"]
 
-    occupation_count.columns = ["Occupation","Count"]
+fig = px.bar(
+    occupation_df,
+    x="Occupation",
+    y="Count",
+    color="Count"
+)
 
-    fig = px.bar(
-        occupation_count,
-        x="Occupation",
-        y="Count",
-        color="Count",
-        title="Occupation Analysis"
-    )
+st.plotly_chart(fig, use_container_width=True)
 
-    st.plotly_chart(fig, use_container_width=True)
-
-with col2:
-
-    income_count = (
-        filtered_df["Monthly Income"]
-        .value_counts()
-        .reset_index()
-    )
-
-    income_count.columns = ["Income","Count"]
-
-    fig = px.bar(
-        income_count,
-        x="Income",
-        y="Count",
-        color="Count",
-        title="Income Distribution"
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-# --------------------------------------------------
+# ==================================================
 # FEEDBACK ANALYSIS
-# --------------------------------------------------
+# ==================================================
 
-st.subheader("😊 Customer Feedback Analysis")
+st.subheader("😊 Feedback Analysis")
 
-feedback_count = (
+feedback_df = (
     filtered_df["Feedback"]
     .value_counts()
     .reset_index()
 )
 
-feedback_count.columns = ["Feedback","Count"]
+feedback_df.columns = ["Feedback", "Count"]
 
 fig = px.bar(
-    feedback_count,
+    feedback_df,
     x="Feedback",
     y="Count",
-    color="Feedback",
-    title="Feedback Overview"
+    color="Feedback"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-# --------------------------------------------------
+# ==================================================
 # EDUCATION ANALYSIS
-# --------------------------------------------------
+# ==================================================
 
 st.subheader("🎓 Education Analysis")
 
-edu = (
+edu_df = (
     filtered_df["Educational Qualifications"]
     .value_counts()
     .reset_index()
 )
 
-edu.columns = ["Education","Count"]
+edu_df.columns = ["Education", "Count"]
 
 fig = px.bar(
-    edu,
+    edu_df,
     x="Education",
     y="Count",
-    color="Count",
-    title="Educational Qualification Distribution"
+    color="Count"
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-# --------------------------------------------------
-# FAMILY SIZE ANALYSIS
-# --------------------------------------------------
+# ==================================================
+# MAP ANALYSIS
+# ==================================================
 
-st.subheader("👨‍👩‍👧 Family Size Distribution")
+if "latitude" in filtered_df.columns and "longitude" in filtered_df.columns:
 
-fig = px.box(
-    filtered_df,
-    y="Family size",
-    title="Family Size Spread"
-)
+    st.subheader("📍 Customer Locations")
 
-st.plotly_chart(fig, use_container_width=True)
+    fig = px.scatter_mapbox(
+        filtered_df,
+        lat="latitude",
+        lon="longitude",
+        zoom=10,
+        height=500,
+        hover_name="Occupation"
+    )
 
-# --------------------------------------------------
-# LOCATION ANALYSIS
-# --------------------------------------------------
+    fig.update_layout(
+        mapbox_style="open-street-map"
+    )
 
-st.subheader("📍 Customer Locations")
+    st.plotly_chart(fig, use_container_width=True)
 
-fig = px.scatter_mapbox(
-    filtered_df,
-    lat="latitude",
-    lon="longitude",
-    hover_name="Occupation",
-    zoom=10,
-    height=500
-)
-
-fig.update_layout(
-    mapbox_style="open-street-map"
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# --------------------------------------------------
-# CORRELATION
-# --------------------------------------------------
+# ==================================================
+# CORRELATION HEATMAP
+# ==================================================
 
 st.subheader("📈 Correlation Analysis")
 
 numeric_df = filtered_df.select_dtypes(include="number")
 
-corr = numeric_df.corr()
+if len(numeric_df.columns) > 1:
 
-fig = px.imshow(
-    corr,
-    text_auto=True,
-    aspect="auto",
-    color_continuous_scale="RdBu_r"
-)
+    corr = numeric_df.corr()
 
-st.plotly_chart(fig, use_container_width=True)
+    fig = px.imshow(
+        corr,
+        text_auto=True,
+        aspect="auto"
+    )
 
-# --------------------------------------------------
-# INSIGHTS
-# --------------------------------------------------
+    st.plotly_chart(fig, use_container_width=True)
 
-st.subheader("🧠 AI Style Business Insights")
+# ==================================================
+# BUSINESS INSIGHTS
+# ==================================================
 
-avg_age = filtered_df["Age"].mean()
+st.subheader("🧠 Business Insights")
 
-top_occupation = (
-    filtered_df["Occupation"]
-    .value_counts()
-    .idxmax()
-)
+if len(filtered_df) > 0:
 
-top_education = (
-    filtered_df["Educational Qualifications"]
-    .value_counts()
-    .idxmax()
-)
+    top_occ = (
+        filtered_df["Occupation"]
+        .value_counts()
+        .idxmax()
+    )
 
-st.success(f"""
-### Key Insights
+    top_edu = (
+        filtered_df["Educational Qualifications"]
+        .value_counts()
+        .idxmax()
+    )
 
-✔ Average customer age is **{avg_age:.1f} years**
+    st.success(f"""
+    • Most customers are **{top_occ}**
 
-✔ Most customers are **{top_occupation}**
+    • Most common education level is **{top_edu}**
 
-✔ Majority educational qualification is **{top_education}**
+    • Positive feedback rate is **{positive_rate:.1f}%**
 
-✔ Positive feedback percentage is **{positive_rate:.1f}%**
+    • Younger customers dominate food delivery usage.
 
-✔ Customer concentration can be observed around Bangalore urban areas.
+    • Customer behavior can help businesses target promotions.
+    """)
 
-✔ Students form the major customer segment.
-
-✔ Food delivery businesses should focus on younger demographics.
-""")
-
-# --------------------------------------------------
+# ==================================================
 # DATA TABLE
-# --------------------------------------------------
+# ==================================================
 
 st.subheader("📄 Dataset Preview")
 
 st.dataframe(filtered_df)
 
-# --------------------------------------------------
-# DOWNLOAD
-# --------------------------------------------------
+# ==================================================
+# DOWNLOAD DATA
+# ==================================================
 
 csv = filtered_df.to_csv(index=False)
 
@@ -357,11 +353,9 @@ st.download_button(
     "text/csv"
 )
 
-# --------------------------------------------------
+# ==================================================
 # FOOTER
-# --------------------------------------------------
+# ==================================================
 
 st.markdown("---")
-st.markdown(
-    "Developed with ❤️ using Streamlit, Plotly & Python"
-)
+st.markdown("Made with ❤️ using Streamlit and Plotly")
